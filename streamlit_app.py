@@ -6,16 +6,17 @@ import time
 # --- INITIALIZATION ---
 st.set_page_config(page_title="NSS Media Engine", page_icon="📲", layout="centered")
 
-# Custom CSS for Mobile Optimization
+# Custom CSS for high-velocity mobile use
 st.markdown("""
     <style>
     .stButton>button {
         width: 100%;
         border-radius: 12px;
-        height: 3em;
+        height: 3.5em;
         background-color: #007bff;
         color: white;
         font-weight: bold;
+        box-shadow: 0px 4px 10px rgba(0, 123, 255, 0.3);
     }
     .stTextArea textarea {
         border-radius: 12px;
@@ -25,91 +26,101 @@ st.markdown("""
         border-radius: 12px;
         padding: 10px;
     }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre-wrap;
+        background-color: #f0f2f6;
+        border-radius: 8px 8px 0px 0px;
+        gap: 1px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# API Key handled by execution environment
-api_key = "" 
-genai.configure(api_key=api_key)
+# --- API CONFIGURATION ---
+try:
+    # Reference secrets for production deployment
+    GEMINI_API_KEY = st.secrets["GEMINI_KEY"]
+    genai.configure(api_key=GEMINI_API_KEY)
+except Exception:
+    st.error("Missing GEMINI_KEY in Secrets. Please add it to your Streamlit Dashboard.")
+    st.stop()
 
-# --- SYSTEM PROMPT (The "Chief Editor") ---
+# --- SYSTEM PROMPT (The "Media Authority" Strategist) ---
 SYSTEM_PROMPT = """
 You are the Chief Communications Officer for NSS XIM University.
-Objective: Convert raw field inputs into high-authority media content.
+Objective: Convert raw field inputs into high-authority media content that attracts big-ticket sponsors.
 
-1. LinkedIn (Analytical/ROI): Focus on systems, numbers (volunteers, hours, impact), and professional prestige.
-2. Instagram (Hype/Community): Use high-energy language, FOMO, and 'Main Character' vibes for student engagement.
-3. Facebook/Press (Narrative): Journalistic style. Who, What, Where, When. 
+1. LinkedIn (ROI & Systems): Focus on man-hours, volunteer scale, logistics, and university prestige. Use a professional, 'Economics' slant.
+2. Instagram (FOMO & Energy): High-energy, student-centric, punchy sentences, and localized hashtags (#NSSXIM #XIMB #Bhubaneswar).
+3. Facebook/Press (Trust & Story): Journalistic narrative. Who, What, Where, When. Focus on community transformation.
 
 Strict Guardrails:
-- No data hallucinations.
-- Dignity-first reporting (partners, not victims).
-- Use localized hashtags (#NSSXIM #XIMUniversity #Bhubaneswar).
+- Zero data hallucinations.
+- Maintain 'Dignity-First' reporting.
+- Ensure the copy makes NSS XIM look like a professional, high-impact organization worthy of corporate sponsorship.
 """
 
 st.title("🦅 NSS Content Engine")
-st.caption("Upload → Generate → Post. Done in 60 seconds.")
+st.caption("Field Data to Media Authority in < 60s.")
 
-# --- MOBILE-FIRST INPUT ---
-with st.container():
-    uploaded_files = st.file_uploader("📸 Capture/Upload Photos", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
-    
-    raw_text = st.text_area("📝 Quick Notes / Brochure Text", 
-                            placeholder="Ex: 50 students at Pipili. 200 trees planted. DC was Chief Guest.",
-                            height=150)
-    
-    generate_btn = st.button("🚀 GENERATE DRAFTS")
+# --- MOBILE INPUT SECTION ---
+uploaded_files = st.file_uploader("📸 Capture/Upload Photos", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
+raw_text = st.text_area("📝 Raw Field Notes / Brochure Text", 
+                        placeholder="Ex: 40 volunteers, Slum cleanliness drive at X. 300kgs waste collected. Ward Councillor joined.",
+                        height=120)
 
-# --- PROCESSING ---
-if generate_btn:
+if st.button("🚀 GENERATE DRAFTS"):
     if not uploaded_files or not raw_text:
-        st.warning("Feed the engine: We need photos AND text.")
+        st.warning("Input required: Upload photos and add event notes.")
     else:
         try:
+            # Using the high-velocity multimodal model
             model = genai.GenerativeModel("gemini-2.5-flash-preview-09-2025")
             
-            # Prepare images
-            processed_images = [Image.open(f) for f in uploaded_files]
+            # Process Images
+            images = [Image.open(f) for f in uploaded_files]
             
-            with st.status("🛠️ AI Editor at work...", expanded=True) as status:
-                st.write("Analyzing images for 'vibe'...")
-                st.write("Cross-referencing brochure facts...")
-                
-                # Payload
-                full_prompt = f"{SYSTEM_PROMPT}\n\nUSER FIELD DATA: {raw_text}"
-                
-                # API Call with simple retry logic
-                response = model.generate_content([full_prompt] + processed_images)
-                status.update(label="✅ Content Ready!", state="complete", expanded=False)
+            with st.status("🛠️ AI Editor drafting...", expanded=False) as status:
+                prompt = f"{SYSTEM_PROMPT}\n\nRAW INPUT:\n{raw_text}"
+                response = model.generate_content([prompt] + images)
+                status.update(label="✅ Content Ready!", state="complete")
 
-            # --- OUTPUT TABS (Mobile Friendly) ---
-            output_text = response.text
-            
-            # Since we want it to be easy to copy on phone, use st.code for one-tap copy
+            # --- OUTPUT TABS ---
+            output = response.text
             tabs = st.tabs(["🔗 LinkedIn", "📸 Instagram", "📰 Press Kit"])
             
+            # Helper to split text into platform chunks
+            def get_chunk(text, start_marker, end_marker=None):
+                try:
+                    start = text.find(start_marker)
+                    if start == -1: return text
+                    sub = text[start:]
+                    if end_marker:
+                        end = sub.find(end_marker, len(start_marker))
+                        return sub[:end].strip() if end != -1 else sub.strip()
+                    return sub.strip()
+                except:
+                    return text
+
             with tabs[0]:
-                st.subheader("LinkedIn Draft")
-                st.info("Strategy: ROI & Systems Thinking")
-                st.code(output_text.split("2.")[0].replace("1.", "").strip(), language=None)
+                st.subheader("Professional ROI Draft")
+                st.code(get_chunk(output, "1.", "2."), language=None)
                 
             with tabs[1]:
-                st.subheader("Instagram Draft")
-                st.info("Strategy: Hype & Student FOMO")
-                # Attempt to parse or just show the relevant chunk
-                ig_part = output_text.split("2.")[-1].split("3.")[0] if "2." in output_text else output_text
-                st.code(ig_part.strip(), language=None)
+                st.subheader("Student Energy Draft")
+                st.code(get_chunk(output, "2.", "3."), language=None)
                 
             with tabs[2]:
-                st.subheader("Local Media / FB")
-                st.info("Strategy: Narrative & Trust")
-                fb_part = output_text.split("3.")[-1] if "3." in output_text else output_text
-                st.code(fb_part.strip(), language=None)
+                st.subheader("Local Media Narrative")
+                st.code(get_chunk(output, "3."), language=None)
 
             st.success("Tap the code blocks to copy instantly!")
 
         except Exception as e:
-            st.error(f"Engine Stall: {str(e)}")
+            st.error(f"System Error: {str(e)}")
 
 st.divider()
-st.caption("Built for Speed. Optimized for XIM.")
+st.caption("Optimized for XIM Media Authority | 2026")
